@@ -405,14 +405,16 @@ _genfp16_binary_operator(operator.itruediv)
 def _resolve_wrapped_unary(fname):
     decl = declare_device_function_template(f'__numba_wrapper_{fname}',
                                             types.float16,
-                                            (types.float16,))
+                                            (types.float16,),
+                                            None)
     return types.Function(decl)
 
 
 def _resolve_wrapped_binary(fname):
     decl = declare_device_function_template(f'__numba_wrapper_{fname}',
                                             types.float16,
-                                            (types.float16, types.float16,))
+                                            (types.float16, types.float16,),
+                                            None)
     return types.Function(decl)
 
 
