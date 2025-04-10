@@ -173,10 +173,14 @@ def declare_device(name, sig, link=None):
     :param name: The name of the foreign function.
     :type name: str
     :param sig: The Numba signature of the function.
+    :param link: External code to link when calling the function.
     """
+    if link is None:
+        link = tuple()
+    else:
+        if not isinstance(link, (list, tuple, set)):
+            link = (link,)
 
-    if link is not None and not isinstance(link, (list, tuple)):
-        link = (link,)
     argtypes, restype = sigutils.normalize_signature(sig)
     if restype is None:
         msg = 'Return type must be provided for device declarations'
