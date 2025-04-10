@@ -209,8 +209,15 @@ class _Kernel(serialize.ReduceMixin):
 
         self.maybe_link_nrt(link, tgt_ctx, asm)
 
-        for obj in get_cres_link_objects(cres):
-            lib.add_linking_file(obj)
+        for k, v in cres.fndesc.typemap.items():
+            if not isinstance(v, Function):
+                continue
+
+            if not isinstance(v.typing_key, ExternFunction):
+                continue
+
+            for obj in v.typing_key.link:
+                lib.add_linking_file(obj)
 
         for filepath in link:
             lib.add_linking_file(filepath)
@@ -968,6 +975,10 @@ class CUDADispatcher(Dispatcher, serialize.ReduceMixin):
 
         A (template, pysig, args, kws) tuple is returned.
         """
+        # Fold keyword arguments and resolve default values
+        pysig, args = self._compiler.fold_argument_types(args, kws)
+        kws = {}
+
         # Ensure an exactly-matching overload is available if we can
         # compile. We proceed with the typing even if we can't compile
         # because we may be able to force a cast on the caller side.

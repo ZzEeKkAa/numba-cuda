@@ -1,6 +1,6 @@
 from warnings import warn
 from numba.core import types, config, sigutils
-from numba.core.errors import DeprecationError, NumbaInvalidConfigWarning
+from numba.core.errors import NumbaInvalidConfigWarning
 from numba.cuda.compiler import declare_device_function
 from numba.cuda.dispatcher import CUDADispatcher
 from numba.cuda.simulator.kernel import FakeCUDAKernel
@@ -12,7 +12,9 @@ _msg_deprecated_signature_arg = ("Deprecated keyword argument `{0}`. "
 
 
 def jit(func_or_sig=None, device=False, inline=False, link=[], debug=None,
-        opt=None, lineinfo=False, cache=False, **kws):
+        opt=None, lineinfo=False, cache=False, fastmath=False,
+        extensions=None, no_cpython_wrapper=True, nopython=True,
+        max_registers=None):
     """
     JIT compile a Python function for CUDA GPUs.
 
@@ -57,23 +59,9 @@ def jit(func_or_sig=None, device=False, inline=False, link=[], debug=None,
     if link and config.ENABLE_CUDASIM:
         raise NotImplementedError('Cannot link PTX in the simulator')
 
-    if kws.get('boundscheck'):
-        raise NotImplementedError("bounds checking is not supported for CUDA")
-
-    if kws.get('argtypes') is not None:
-        msg = _msg_deprecated_signature_arg.format('argtypes')
-        raise DeprecationError(msg)
-    if kws.get('restype') is not None:
-        msg = _msg_deprecated_signature_arg.format('restype')
-        raise DeprecationError(msg)
-    if kws.get('bind') is not None:
-        msg = _msg_deprecated_signature_arg.format('bind')
-        raise DeprecationError(msg)
-
     debug = config.CUDA_DEBUGINFO_DEFAULT if debug is None else debug
     opt = (config.OPT != 0) if opt is None else opt
-    fastmath = kws.get('fastmath', False)
-    extensions = kws.get('extensions', [])
+    extensions = extensions or []
 
     if debug and opt:
         msg = ("debug=True with opt=True "
@@ -87,7 +75,7 @@ def jit(func_or_sig=None, device=False, inline=False, link=[], debug=None,
                "lineinfo for line info only with code generation unaffected.")
         warn(NumbaInvalidConfigWarning(msg))
 
-    if device and kws.get('link'):
+    if device and link:
         raise ValueError("link keyword invalid for device function")
 
     if sigutils.is_signature(func_or_sig):
@@ -106,7 +94,7 @@ def jit(func_or_sig=None, device=False, inline=False, link=[], debug=None,
             return jitwrapper
 
         def _jit(func):
-            targetoptions = kws.copy()
+            targetoptions = {}
             targetoptions['debug'] = debug
             targetoptions['lineinfo'] = lineinfo
             targetoptions['link'] = link
@@ -114,6 +102,7 @@ def jit(func_or_sig=None, device=False, inline=False, link=[], debug=None,
             targetoptions['fastmath'] = fastmath
             targetoptions['device'] = device
             targetoptions['extensions'] = extensions
+            targetoptions['max_registers'] = max_registers
 
             disp = CUDADispatcher(func, targetoptions=targetoptions)
 
@@ -148,7 +137,9 @@ def jit(func_or_sig=None, device=False, inline=False, link=[], debug=None,
             else:
                 def autojitwrapper(func):
                     return jit(func, device=device, debug=debug, opt=opt,
-                               lineinfo=lineinfo, link=link, cache=cache, **kws)
+                               lineinfo=lineinfo, link=link, cache=cache,
+                               fastmath=fastmath, extensions=extensions,
+                               max_registers=max_registers)
 
             return autojitwrapper
         # func_or_sig is a function
@@ -157,7 +148,7 @@ def jit(func_or_sig=None, device=False, inline=False, link=[], debug=None,
                 return FakeCUDAKernel(func_or_sig, device=device,
                                       fastmath=fastmath)
             else:
-                targetoptions = kws.copy()
+                targetoptions = {}
                 targetoptions['debug'] = debug
                 targetoptions['lineinfo'] = lineinfo
                 targetoptions['opt'] = opt
@@ -165,6 +156,7 @@ def jit(func_or_sig=None, device=False, inline=False, link=[], debug=None,
                 targetoptions['fastmath'] = fastmath
                 targetoptions['device'] = device
                 targetoptions['extensions'] = extensions
+                targetoptions['max_registers'] = max_registers
                 disp = CUDADispatcher(func_or_sig, targetoptions=targetoptions)
 
                 if cache:
